@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stock Market Ticker Wallpaper by Anirudh Vemula, PE (2026)</title>
+    <title>Stock Market Ticker Wallpaper</title>
     
     <!--
     ⚠️ IMPORTANT: Configure your backend API URL
@@ -48,6 +48,7 @@
             width: 100%;
             height: 100%;
             z-index: 0;
+            opacity: 0.6;
         }
 
         /* Header with clocks and market status */
@@ -95,10 +96,35 @@
             font-size: 20px;
             font-weight: bold;
             color: #ffffff;
+            transition: color 0.3s ease;
+        }
+
+        .clock-time.market-open {
+            color: #00ff88;
+        }
+
+        .clock-time.market-closed {
+            color: #ff4444;
+        }
+
+        .clock-time.utc {
+            color: rgba(255, 255, 255, 0.5);
         }
 
         .light-mode .clock-time {
             color: #000000;
+        }
+
+        .light-mode .clock-time.market-open {
+            color: #00aa55;
+        }
+
+        .light-mode .clock-time.market-closed {
+            color: #cc3333;
+        }
+
+        .light-mode .clock-time.utc {
+            color: rgba(0, 0, 0, 0.5);
         }
 
         .market-status {
@@ -110,6 +136,17 @@
             border-radius: 20px;
             border: 1px solid rgba(255, 255, 255, 0.1);
             color: #ffffff;
+            transition: color 0.3s ease;
+        }
+
+        .market-status.market-open {
+            color: #00ff88;
+            border-color: rgba(0, 255, 136, 0.3);
+        }
+
+        .market-status.market-closed {
+            color: #ff4444;
+            border-color: rgba(255, 68, 68, 0.3);
         }
 
         .light-mode .market-status {
@@ -118,17 +155,27 @@
             color: #000000;
         }
 
+        .light-mode .market-status.market-open {
+            color: #00aa55;
+            border-color: rgba(0, 170, 85, 0.3);
+        }
+
+        .light-mode .market-status.market-closed {
+            color: #cc3333;
+            border-color: rgba(204, 51, 51, 0.3);
+        }
+
         .last-updated {
             display: flex;
             flex-direction: column;
             align-items: flex-end;
             gap: 2px;
             font-size: 12px;
-            color: rgba(255, 255, 255, 0.8);
+            color: rgba(255, 255, 255, 0.5);
         }
 
         .light-mode .last-updated {
-            color: rgba(0, 0, 0, 0.8);
+            color: rgba(0, 0, 0, 0.5);
         }
 
         #update-time {
@@ -354,6 +401,15 @@
             flex-direction: column;
             gap: 8px;
             min-height: 60px;
+        }
+
+        .control-group .btn {
+            white-space: nowrap;
+            min-width: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
         }
 
         .control-label {
@@ -620,6 +676,10 @@
             z-index: 2;
         }
 
+        .light-mode .loading {
+            color: rgba(0, 0, 0, 0.8);
+        }
+
         /* Font variants */
         .font-orbitron {
             font-family: 'Orbitron', monospace;
@@ -668,35 +728,35 @@
             font-size: 11px;
             line-height: 1.4;
             text-align: right;
-            color: rgba(255, 255, 255, 0.9);
+            color: #00ff88;
             z-index: 5;
             pointer-events: none;
             letter-spacing: 0.5px;
         }
 
         .footer-credit a {
-            color: rgba(255, 255, 255, 1);
+            color: #00ff88;
             text-decoration: none;
             pointer-events: auto;
             font-weight: 500;
         }
 
         .footer-credit a:hover {
-            color: #00ff88;
+            color: #00ffaa;
             text-decoration: underline;
         }
 
         .light-mode .footer-credit {
-            color: rgba(0, 0, 0, 0.8);
+            color: #00aa55;
         }
 
         .light-mode .footer-credit a {
-            color: rgba(0, 0, 0, 0.95);
+            color: #00aa55;
             font-weight: 500;
         }
 
         .light-mode .footer-credit a:hover {
-            color: #0066cc;
+            color: #00cc66;
             text-decoration: underline;
         }
 
@@ -1432,10 +1492,10 @@
             reset() {
                 this.x = Math.random() * canvas.width;
                 this.y = Math.random() * canvas.height;
-                this.size = Math.random() * 2 + 0.5;
+                this.size = Math.random() * 3 + 1;
                 this.speedX = Math.random() * 0.5 - 0.25;
                 this.speedY = Math.random() * 0.5 - 0.25;
-                this.opacity = Math.random() * 0.5 + 0.1;
+                this.opacity = Math.random() * 0.7 + 0.3;
             }
 
             update() {
@@ -1451,7 +1511,7 @@
             draw() {
                 const isLight = document.body.classList.contains('light-mode');
                 ctx.fillStyle = isLight 
-                    ? `rgba(50, 100, 200, ${this.opacity * 0.3})`
+                    ? `rgba(50, 100, 200, ${this.opacity * 0.5})`
                     : `rgba(100, 150, 255, ${this.opacity})`;
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
@@ -1472,16 +1532,19 @@
 
             draw() {
                 this.frameCount++;
-                // Only update every 4 frames to slow it down more
-                if (this.frameCount % 4 !== 0) return;
+                // Only update every 6 frames to slow it down even more
+                if (this.frameCount % 6 !== 0) return;
 
                 const isLight = document.body.classList.contains('light-mode');
                 ctx.fillStyle = isLight 
-                    ? 'rgba(255, 255, 255, 0.08)'
-                    : 'rgba(0, 0, 0, 0.08)';
+                    ? 'rgba(255, 255, 255, 0.1)'
+                    : 'rgba(0, 0, 0, 0.1)';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                ctx.fillStyle = isLight ? 'rgba(0, 150, 0, 0.5)' : '#0F0';
+                // Use same blue as waves
+                ctx.fillStyle = isLight 
+                    ? 'rgba(0, 100, 200, 0.6)' 
+                    : 'rgba(100, 200, 255, 0.7)';
                 ctx.font = '15px monospace';
 
                 for (let i = 0; i < this.drops.length; i++) {
@@ -1493,7 +1556,7 @@
                     if (this.drops[i] > canvas.height && Math.random() > 0.98) {
                         this.drops[i] = 0;
                     }
-                    this.drops[i] += 12;
+                    this.drops[i] += 8; // Even slower speed
                 }
             }
         }
@@ -1508,8 +1571,8 @@
                 const isLight = document.body.classList.contains('light-mode');
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 ctx.strokeStyle = isLight 
-                    ? 'rgba(0, 100, 200, 0.15)'
-                    : 'rgba(100, 200, 255, 0.25)';
+                    ? 'rgba(0, 100, 200, 0.25)'
+                    : 'rgba(100, 200, 255, 0.4)';
                 ctx.lineWidth = 1;
 
                 const spacing = 50;
@@ -1537,10 +1600,13 @@
         class Waves {
             constructor() {
                 this.time = 0;
+                this.position = Math.random() > 0.5 ? 'top' : 'bottom';
+                this.yOffset = this.position === 'top' ? canvas.height * 0.25 : canvas.height * 0.75;
             }
 
             draw() {
                 const isLight = document.body.classList.contains('light-mode');
+                // Clear only this layer, not the whole canvas
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 this.time += 0.01;
 
@@ -1552,7 +1618,7 @@
                     ctx.lineWidth = 3;
 
                     for (let x = 0; x < canvas.width; x++) {
-                        const y = canvas.height / 2 + 
+                        const y = this.yOffset + 
                             Math.sin(x * 0.01 + this.time + i * 0.5) * 50 +
                             Math.sin(x * 0.02 + this.time * 0.5) * 30;
                         if (x === 0) {
@@ -1564,12 +1630,25 @@
                     ctx.stroke();
                 }
             }
+
+            regeneratePosition() {
+                this.position = Math.random() > 0.5 ? 'top' : 'bottom';
+                this.yOffset = this.position === 'top' ? canvas.height * 0.25 : canvas.height * 0.75;
+            }
         }
 
         let particles = Array.from({ length: 100 }, () => new Particle());
         let matrixRain = new MatrixRain();
         let grid = new Grid();
         let waves = new Waves();
+
+        // Regenerate wave position every 30 seconds
+        setInterval(() => {
+            if (currentBgAnimation === 'waves') {
+                waves.regeneratePosition();
+                console.log('🌊 Waves repositioned:', waves.position);
+            }
+        }, 30000);
 
         function animateBackground() {
             switch (currentBgAnimation) {
@@ -1627,13 +1706,62 @@
 
             const statusDot = document.getElementById('status-dot');
             const statusText = document.getElementById('market-status-text');
+            const marketStatus = document.querySelector('.market-status');
+            
+            // Get clock elements
+            const estClock = document.getElementById('clock-est');
+            const istClock = document.getElementById('clock-ist');
+            const utcClock = document.getElementById('clock-utc');
 
+            // Update current market status display
             if (isOpen) {
                 statusDot.className = 'status-dot open';
                 statusText.textContent = `${market.name} - Market Open`;
+                if (marketStatus) marketStatus.classList.add('market-open');
+                if (marketStatus) marketStatus.classList.remove('market-closed');
             } else {
                 statusDot.className = 'status-dot closed';
                 statusText.textContent = `${market.name} - Market Closed`;
+                if (marketStatus) marketStatus.classList.add('market-closed');
+                if (marketStatus) marketStatus.classList.remove('market-open');
+            }
+
+            // Check BOTH US and Indian markets independently
+            if (estClock && istClock && utcClock) {
+                // Reset all clocks
+                estClock.classList.remove('market-open', 'market-closed', 'utc');
+                istClock.classList.remove('market-open', 'market-closed', 'utc');
+                utcClock.classList.add('utc');
+
+                // Check US market (EST timezone)
+                const usMarket = MARKETS['US_MAJOR'];
+                const usTime = new Date(now.toLocaleString('en-US', { timeZone: usMarket.timezone }));
+                const usDay = usTime.getDay();
+                const usHours = usTime.getHours();
+                const usMinutes = usTime.getMinutes();
+                const usCurrentMinutes = usHours * 60 + usMinutes;
+                const usOpenMinutes = usMarket.openHour * 60 + usMarket.openMinute;
+                const usCloseMinutes = usMarket.closeHour * 60 + usMarket.closeMinute;
+                const usIsWeekday = usDay >= 1 && usDay <= 5;
+                const usIsOpen = usIsWeekday && usCurrentMinutes >= usOpenMinutes && usCurrentMinutes < usCloseMinutes;
+
+                // Check Indian market (IST timezone)
+                const indMarket = MARKETS['INDIA_NIFTY50'];
+                const indTime = new Date(now.toLocaleString('en-US', { timeZone: indMarket.timezone }));
+                const indDay = indTime.getDay();
+                const indHours = indTime.getHours();
+                const indMinutes = indTime.getMinutes();
+                const indCurrentMinutes = indHours * 60 + indMinutes;
+                const indOpenMinutes = indMarket.openHour * 60 + indMarket.openMinute;
+                const indCloseMinutes = indMarket.closeHour * 60 + indMarket.closeMinute;
+                const indIsWeekday = indDay >= 1 && indDay <= 5;
+                const indIsOpen = indIsWeekday && indCurrentMinutes >= indOpenMinutes && indCurrentMinutes < indCloseMinutes;
+
+                // Color EST based on US market
+                estClock.classList.add(usIsOpen ? 'market-open' : 'market-closed');
+                
+                // Color IST based on Indian market
+                istClock.classList.add(indIsOpen ? 'market-open' : 'market-closed');
             }
         }
 
@@ -1752,15 +1880,15 @@
                 loading.innerHTML = `
                     <div style="text-align: center;">
                         <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
-                        <div style="font-size: 24px; margin-bottom: 10px;">Unable to fetch stock data</div>
-                        <div style="font-size: 14px; color: rgba(255, 255, 255, 0.6); margin-bottom: 20px;">
+                        <div style="font-size: 24px; margin-bottom: 10px; color: inherit;">Unable to fetch stock data</div>
+                        <div style="font-size: 14px; margin-bottom: 20px; opacity: 0.7;">
                             Please check your internet connection<br>
                             Yahoo Finance may be temporarily unavailable
                         </div>
-                        <button onclick="location.reload()" style="
-                            background: rgba(255, 255, 255, 0.1);
-                            border: 1px solid rgba(255, 255, 255, 0.3);
-                            color: white;
+                        <button onclick="location.reload()" class="retry-btn" style="
+                            background: rgba(128, 128, 128, 0.2);
+                            border: 1px solid rgba(128, 128, 128, 0.4);
+                            color: inherit;
                             padding: 12px 24px;
                             border-radius: 8px;
                             font-size: 14px;
