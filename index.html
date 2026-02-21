@@ -1,0 +1,2091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Market Ticker Wallpaper</title>
+    
+    <!--
+    ⚠️ IMPORTANT: Configure your backend API URL
+    
+    This ticker requires a backend proxy to fetch Yahoo Finance data.
+    
+    Before using:
+    1. Deploy the backend (see DEPLOYMENT-GUIDE.md)
+    2. Update API_URL in the fetchYahooFinanceData function (search for "🔥 REPLACE THIS")
+    
+    Example URLs:
+    - Vercel: 'https://your-project.vercel.app/api/stocks'
+    - Netlify: 'https://your-site.netlify.app/.netlify/functions/stocks'
+    
+    If testing locally with backend:
+    - Use: 'http://localhost:3000/api/stocks' (or your local server)
+    -->
+    
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            overflow: hidden;
+            background: #000000;
+            color: #fff;
+        }
+
+        body.light-mode {
+            background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 50%, #f0f4f8 100%);
+        }
+
+        #canvas-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        /* Header with clocks and market status */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 100;
+        }
+
+        .light-mode .header {
+            background: rgba(255, 255, 255, 0.8);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .clocks {
+            display: flex;
+            gap: 30px;
+        }
+
+        .clock-item {
+            text-align: center;
+        }
+
+        .clock-label {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 5px;
+            letter-spacing: 1px;
+        }
+
+        .light-mode .clock-label {
+            color: rgba(0, 0, 0, 0.5);
+        }
+
+        .clock-time {
+            font-size: 20px;
+            font-weight: bold;
+            color: #ffffff;
+        }
+
+        .light-mode .clock-time {
+            color: #000000;
+        }
+
+        .market-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+        }
+
+        .light-mode .market-status {
+            background: rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            color: #000000;
+        }
+
+        .last-updated {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 2px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .light-mode .last-updated {
+            color: rgba(0, 0, 0, 0.8);
+        }
+
+        #update-time {
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.open {
+            background: #00ff88;
+            box-shadow: 0 0 10px #00ff88;
+        }
+
+        .status-dot.closed {
+            background: #ff4444;
+            box-shadow: 0 0 10px #ff4444;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .ticker-container {
+            position: fixed;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            transform: translateY(-50%) perspective(1200px);
+            overflow: visible;
+            z-index: 1;
+            padding: 200px 0;
+        }
+
+        .ticker-ribbon {
+            display: flex;
+            will-change: transform;
+            padding: 20px 0;
+            transform-style: preserve-3d;
+            animation: scroll 15s linear infinite;
+        }
+
+        .ticker-ribbon:hover {
+            animation-play-state: paused;
+        }
+
+        @keyframes scroll {
+            0% { transform: translateX(0) rotateY(0deg); }
+            100% { transform: translateX(-50%) rotateY(0deg); }
+        }
+
+        .stock-item {
+            flex-shrink: 0;
+            margin: 0 30px;
+            padding: 25px 35px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+            min-width: 300px;
+            transform-style: preserve-3d;
+            overflow: visible;
+        }
+
+        .light-mode .stock-item {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .stock-item:hover {
+            transform: scale(1.2) translateZ(40px);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.6);
+            z-index: 10;
+        }
+
+        .light-mode .stock-item:hover {
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.3);
+        }
+
+        .stock-item.positive {
+            border-color: rgba(0, 255, 136, 0.4);
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.2);
+        }
+
+        .stock-item.negative {
+            border-color: rgba(255, 68, 68, 0.4);
+            box-shadow: 0 0 30px rgba(255, 68, 68, 0.2);
+        }
+
+        .stock-item.positive:hover {
+            box-shadow: 0 0 60px rgba(0, 255, 136, 0.5), 0 25px 70px rgba(0, 0, 0, 0.6);
+        }
+
+        .stock-item.negative:hover {
+            box-shadow: 0 0 60px rgba(255, 68, 68, 0.5), 0 25px 70px rgba(0, 0, 0, 0.6);
+        }
+
+        .stock-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .stock-symbol {
+            font-size: 28px;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+
+        .stock-name {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 8px;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .light-mode .stock-name {
+            color: rgba(0, 0, 0, 0.6);
+        }
+
+        .stock-price {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .stock-change {
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .positive .stock-price,
+        .positive .stock-change {
+            color: #00ff88;
+        }
+
+        .negative .stock-price,
+        .negative .stock-change {
+            color: #ff4444;
+        }
+
+        .arrow {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .mini-chart {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(10px) scale(0.85);
+            width: 280px;
+            height: 120px;
+            background: rgba(0, 0, 0, 0.98);
+            border-radius: 12px;
+            padding: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(20px);
+            z-index: 20;
+            margin-bottom: 15px;
+        }
+
+        .light-mode .mini-chart {
+            background: rgba(255, 255, 255, 0.98);
+            border: 2px solid rgba(0, 0, 0, 0.2);
+        }
+
+        .stock-item:hover .mini-chart {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0) scale(1);
+        }
+
+        .chart-line {
+            width: 100%;
+            height: 80px;
+        }
+
+        /* Controls panel */
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            padding: 20px 30px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+            z-index: 100;
+        }
+
+        .light-mode .controls {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0, 0, 0, 0.2);
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-height: 60px;
+        }
+
+        .control-label {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.6);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .light-mode .control-label,
+        .light-mode #speed-display {
+            color: rgba(0, 0, 0, 0.6);
+        }
+
+        select, .btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            height: 8px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #00ff88;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: #00ff88;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+
+        .light-mode input[type="range"] {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .light-mode select,
+        .light-mode .btn {
+            background: rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            color: black;
+        }
+
+        select:hover, .btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .light-mode select:hover,
+        .light-mode .btn:hover {
+            background: rgba(0, 0, 0, 0.1);
+            border-color: rgba(0, 0, 0, 0.3);
+        }
+
+        select option {
+            background: #1a1f3a;
+            color: white;
+        }
+
+        .detail-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .detail-modal.active {
+            display: flex;
+        }
+
+        .detail-content {
+            background: linear-gradient(135deg, #1a1f3a 0%, #0a0e27 100%);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        .light-mode .detail-content {
+            background: linear-gradient(135deg, #ffffff 0%, #f0f4f8 100%);
+            border: 2px solid rgba(0, 0, 0, 0.2);
+        }
+
+        .detail-content.positive-bg {
+            background: linear-gradient(135deg, #1a2f25 0%, #0a1510 100%);
+            border-color: rgba(0, 255, 136, 0.3);
+        }
+
+        .detail-content.negative-bg {
+            background: linear-gradient(135deg, #2f1a1a 0%, #150a0a 100%);
+            border-color: rgba(255, 68, 68, 0.3);
+        }
+
+        .light-mode .detail-content.positive-bg {
+            background: linear-gradient(135deg, #f0fff5 0%, #e6f9f0 100%);
+            border-color: rgba(0, 200, 100, 0.3);
+        }
+
+        .light-mode .detail-content.negative-bg {
+            background: linear-gradient(135deg, #fff5f5 0%, #ffe6e6 100%);
+            border-color: rgba(200, 50, 50, 0.3);
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            font-size: 24px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .light-mode .close-btn {
+            background: rgba(0, 0, 0, 0.1);
+            color: black;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: rotate(90deg);
+        }
+
+        .detail-header {
+            margin-bottom: 30px;
+        }
+
+        .detail-symbol {
+            font-size: 48px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .detail-price {
+            font-size: 56px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .detail-change {
+            font-size: 24px;
+        }
+
+        .detail-header.positive .detail-symbol,
+        .detail-header.positive .detail-price,
+        .detail-header.positive .detail-change {
+            color: #00ff88;
+        }
+
+        .detail-header.negative .detail-symbol,
+        .detail-header.negative .detail-price,
+        .detail-header.negative .detail-change {
+            color: #ff4444;
+        }
+
+        .light-mode .detail-header.positive .detail-symbol,
+        .light-mode .detail-header.positive .detail-price,
+        .light-mode .detail-header.positive .detail-change {
+            color: #00aa55;
+        }
+
+        .light-mode .detail-header.negative .detail-symbol,
+        .light-mode .detail-header.negative .detail-price,
+        .light-mode .detail-header.negative .detail-change {
+            color: #cc3333;
+        }
+
+        .light-mode .detail-header .stock-name {
+            color: rgba(0, 0, 0, 0.6);
+        }
+
+        .detail-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .light-mode .stat-item {
+            background: rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 5px;
+        }
+
+        .light-mode .stat-label {
+            color: rgba(0, 0, 0, 0.6);
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            color: rgba(255, 255, 255, 0.5);
+            z-index: 2;
+        }
+
+        /* Font variants */
+        .font-orbitron {
+            font-family: 'Orbitron', monospace;
+        }
+
+        .font-mono {
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        .font-pixel {
+            font-family: 'Courier New', monospace;
+            letter-spacing: 2px;
+            text-shadow: 0 0 5px currentColor;
+        }
+
+        .font-led {
+            font-family: 'Orbitron', monospace;
+            letter-spacing: 3px;
+        }
+
+        .font-arial {
+            font-family: Arial, sans-serif;
+        }
+
+        .font-helvetica {
+            font-family: 'Helvetica Neue', Helvetica, sans-serif;
+        }
+
+        .font-roboto {
+            font-family: 'Roboto', sans-serif;
+        }
+
+        .font-garamond {
+            font-family: Garamond, serif;
+        }
+
+        .font-trebuchet {
+            font-family: 'Trebuchet MS', sans-serif;
+        }
+
+        /* Footer credit */
+        .footer-credit {
+            position: fixed;
+            bottom: 18px;
+            right: 24px;
+            font-size: 11px;
+            line-height: 1.4;
+            text-align: right;
+            color: rgba(255, 255, 255, 0.9);
+            z-index: 5;
+            pointer-events: none;
+            letter-spacing: 0.5px;
+        }
+
+        .footer-credit a {
+            color: rgba(255, 255, 255, 1);
+            text-decoration: none;
+            pointer-events: auto;
+            font-weight: 500;
+        }
+
+        .footer-credit a:hover {
+            color: #00ff88;
+            text-decoration: underline;
+        }
+
+        .light-mode .footer-credit {
+            color: rgba(0, 0, 0, 0.8);
+        }
+
+        .light-mode .footer-credit a {
+            color: rgba(0, 0, 0, 0.95);
+            font-weight: 500;
+        }
+
+        .light-mode .footer-credit a:hover {
+            color: #0066cc;
+            text-decoration: underline;
+        }
+
+        /* Music player controls */
+        .music-controls {
+            position: fixed;
+            bottom: 18px;
+            left: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 12px 16px;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 100;
+        }
+
+        .light-mode .music-controls {
+            background: rgba(255, 255, 255, 0.5);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .music-player {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .music-toggle {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 20px;
+            cursor: pointer;
+            padding: 4px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .light-mode .music-toggle {
+            color: rgba(0, 0, 0, 0.7);
+        }
+
+        .music-toggle:hover {
+            color: rgba(255, 255, 255, 1);
+            transform: scale(1.1);
+        }
+
+        .light-mode .music-toggle:hover {
+            color: rgba(0, 0, 0, 1);
+        }
+
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .volume-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 80px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .light-mode .volume-slider {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 12px;
+            height: 12px;
+            background: #00ff88;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .volume-slider::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            background: #00ff88;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+
+        .volume-label {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.5);
+            min-width: 30px;
+            text-align: center;
+        }
+
+        .light-mode .volume-label {
+            color: rgba(0, 0, 0, 0.5);
+        }
+
+        .music-credit {
+            font-size: 9px;
+            color: rgba(255, 255, 255, 0.3);
+            line-height: 1.3;
+            pointer-events: auto;
+        }
+
+        .light-mode .music-credit {
+            color: rgba(0, 0, 0, 0.3);
+        }
+
+        .music-credit a {
+            color: rgba(255, 255, 255, 0.4);
+            text-decoration: none;
+        }
+
+        .light-mode .music-credit a {
+            color: rgba(0, 0, 0, 0.4);
+        }
+
+        .music-credit a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive Design - Handle Narrow Windows */
+        @media (max-width: 1200px) {
+            .header {
+                padding: 15px 20px;
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+
+            .clocks {
+                gap: 15px;
+            }
+
+            .clock-time {
+                font-size: 16px;
+            }
+
+            .controls {
+                bottom: 10px;
+                padding: 15px 20px;
+                gap: 15px;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .control-group {
+                min-height: auto;
+            }
+
+            .music-controls {
+                bottom: 10px;
+                left: 10px;
+                padding: 10px 12px;
+            }
+
+            .footer-credit {
+                bottom: 10px;
+                right: 10px;
+                font-size: 10px;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 12px 15px;
+            }
+
+            .clocks {
+                order: 2;
+                gap: 10px;
+            }
+
+            .clock-label {
+                font-size: 8px;
+            }
+
+            .clock-time {
+                font-size: 14px;
+            }
+
+            .market-status {
+                order: 1;
+                font-size: 12px;
+                padding: 6px 12px;
+            }
+
+            .last-updated {
+                order: 3;
+                font-size: 10px;
+                align-items: flex-start;
+                margin-top: 5px;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+                max-width: 90%;
+                left: 50%;
+                transform: translateX(-50%);
+                gap: 10px;
+            }
+
+            .control-group {
+                width: 100%;
+            }
+
+            select, .btn, #speed-slider {
+                width: 100%;
+            }
+
+            /* Stack footer elements vertically on small screens */
+            .footer-credit {
+                bottom: auto;
+                top: 10px;
+                right: 10px;
+                font-size: 9px;
+            }
+
+            .music-controls {
+                max-width: calc(100% - 20px);
+            }
+
+            .music-credit {
+                font-size: 8px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .header {
+                padding: 10px;
+            }
+
+            .clocks {
+                flex-direction: column;
+                gap: 5px;
+            }
+
+            .clock-item {
+                text-align: left;
+            }
+
+            .clock-time {
+                font-size: 12px;
+            }
+
+            .market-status {
+                font-size: 11px;
+            }
+
+            .ticker-container {
+                padding: 100px 0;
+            }
+
+            .stock-item {
+                min-width: 250px;
+                padding: 20px 25px;
+            }
+
+            .stock-symbol {
+                font-size: 22px;
+            }
+
+            .stock-price {
+                font-size: 28px;
+            }
+
+            .controls {
+                bottom: 5px;
+                padding: 10px 15px;
+            }
+
+            .control-label {
+                font-size: 9px;
+            }
+
+            select, .btn {
+                font-size: 11px;
+                padding: 6px 12px;
+            }
+
+            /* Move footer credit to top on very small screens */
+            .footer-credit {
+                top: 5px;
+                right: 5px;
+                font-size: 8px;
+                line-height: 1.3;
+            }
+
+            .music-controls {
+                left: 5px;
+                bottom: 5px;
+                padding: 8px 10px;
+            }
+
+            .volume-slider {
+                width: 60px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas-bg"></canvas>
+    
+    <div class="header">
+        <div class="clocks">
+            <div class="clock-item">
+                <div class="clock-label">EST</div>
+                <div class="clock-time" id="clock-est">--:--:--</div>
+            </div>
+            <div class="clock-item">
+                <div class="clock-label">IST</div>
+                <div class="clock-time" id="clock-ist">--:--:--</div>
+            </div>
+            <div class="clock-item">
+                <div class="clock-label">UTC</div>
+                <div class="clock-time" id="clock-utc">--:--:--</div>
+            </div>
+        </div>
+        <div class="market-status">
+            <div class="status-dot" id="status-dot"></div>
+            <div id="market-status-text">Loading...</div>
+        </div>
+        <div class="last-updated" id="last-updated">
+            <span style="font-size: 10px; opacity: 0.6;">Last Updated:</span>
+            <span id="update-time">--:--:--</span>
+        </div>
+    </div>
+
+    <div class="loading" id="loading">Loading market data...</div>
+    
+    <div class="ticker-container" id="tickerContainer" style="display: none;">
+        <div class="ticker-ribbon" id="tickerRibbon"></div>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label class="control-label">Market</label>
+            <select id="market-select">
+                <option value="US_MAJOR">US Major Stocks</option>
+                <option value="NYSE">NYSE Top 20</option>
+                <option value="DOW">Dow Jones 30</option>
+                <option value="INDIA_NIFTY50">NIFTY 50</option>
+                <option value="INDIA_SENSEX">BSE SENSEX</option>
+                <option value="INDIA_BANKNIFTY">Bank NIFTY</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label class="control-label">Speed (sec)</label>
+            <input type="range" id="speed-slider" min="5" max="60" value="15" step="1" style="width: 150px;" dir="rtl">
+            <span id="speed-display" style="font-size: 10px; color: rgba(255, 255, 255, 0.6);">15s</span>
+        </div>
+        <div class="control-group">
+            <label class="control-label">Font</label>
+            <select id="font-select">
+                <option value="mono" selected>Mono</option>
+                <option value="orbitron">Orbitron</option>
+                <option value="pixel">Pixel</option>
+                <option value="led">LED Display</option>
+                <option value="arial">Arial</option>
+                <option value="helvetica">Helvetica</option>
+                <option value="roboto">Roboto</option>
+                <option value="garamond">Garamond</option>
+                <option value="trebuchet">Trebuchet</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label class="control-label">Background</label>
+            <select id="bg-select">
+                <option value="particles">Particles</option>
+                <option value="matrix">Matrix Rain</option>
+                <option value="grid">Grid</option>
+                <option value="waves">Waves</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label class="control-label">Theme</label>
+            <button class="btn" id="theme-toggle">🌙 Dark</button>
+        </div>
+        <div class="control-group">
+            <label class="control-label">Refresh Data</label>
+            <button class="btn" id="refresh-btn">🔄 Update</button>
+        </div>
+    </div>
+
+    <div class="detail-modal" id="detailModal">
+        <div class="detail-content" id="detailContent"></div>
+    </div>
+
+    <script>
+        // Stock configurations for different markets
+        const MARKETS = {
+            US_MAJOR: {
+                name: 'US Major Stocks',
+                stocks: {
+                    'AAPL': 'Apple Inc.',
+                    'MSFT': 'Microsoft Corp.',
+                    'GOOGL': 'Alphabet Inc.',
+                    'AMZN': 'Amazon.com Inc.',
+                    'NVDA': 'NVIDIA Corp.',
+                    'META': 'Meta Platforms',
+                    'TSLA': 'Tesla Inc.',
+                    'BRK.B': 'Berkshire Hathaway',
+                    'JPM': 'JPMorgan Chase',
+                    'V': 'Visa Inc.',
+                    'WMT': 'Walmart Inc.',
+                    'DIS': 'Walt Disney Co.',
+                    'NFLX': 'Netflix Inc.',
+                    'AMD': 'Advanced Micro Devices',
+                    'INTC': 'Intel Corp.',
+                    'COIN': 'Coinbase Global'
+                },
+                timezone: 'America/New_York',
+                openHour: 9,
+                openMinute: 30,
+                closeHour: 16,
+                closeMinute: 0
+            },
+            NYSE: {
+                name: 'NYSE Top 20',
+                stocks: {
+                    'BAC': 'Bank of America',
+                    'C': 'Citigroup Inc.',
+                    'GS': 'Goldman Sachs',
+                    'MS': 'Morgan Stanley',
+                    'WFC': 'Wells Fargo',
+                    'USB': 'U.S. Bancorp',
+                    'PNC': 'PNC Financial',
+                    'T': 'AT&T Inc.',
+                    'VZ': 'Verizon',
+                    'KO': 'Coca-Cola',
+                    'PEP': 'PepsiCo',
+                    'MCD': 'McDonald\'s',
+                    'NKE': 'Nike Inc.',
+                    'BA': 'Boeing Co.',
+                    'CAT': 'Caterpillar',
+                    'GE': 'General Electric',
+                    'IBM': 'IBM Corp.',
+                    'XOM': 'Exxon Mobil',
+                    'CVX': 'Chevron',
+                    'UNH': 'UnitedHealth'
+                },
+                timezone: 'America/New_York',
+                openHour: 9,
+                openMinute: 30,
+                closeHour: 16,
+                closeMinute: 0
+            },
+            DOW: {
+                name: 'Dow Jones 30',
+                stocks: {
+                    'AAPL': 'Apple Inc.',
+                    'MSFT': 'Microsoft',
+                    'JPM': 'JPMorgan Chase',
+                    'V': 'Visa',
+                    'UNH': 'UnitedHealth',
+                    'HD': 'Home Depot',
+                    'GS': 'Goldman Sachs',
+                    'CAT': 'Caterpillar',
+                    'BA': 'Boeing',
+                    'MCD': 'McDonald\'s',
+                    'AMGN': 'Amgen',
+                    'IBM': 'IBM',
+                    'AXP': 'American Express',
+                    'TRV': 'Travelers',
+                    'DIS': 'Disney',
+                    'NKE': 'Nike',
+                    'CRM': 'Salesforce',
+                    'HON': 'Honeywell',
+                    'WMT': 'Walmart',
+                    'CSCO': 'Cisco',
+                    'KO': 'Coca-Cola',
+                    'CVX': 'Chevron',
+                    'MRK': 'Merck',
+                    'JNJ': 'Johnson & Johnson',
+                    'VZ': 'Verizon',
+                    'PG': 'Procter & Gamble',
+                    'INTC': 'Intel',
+                    'WBA': 'Walgreens',
+                    'DOW': 'Dow Inc.',
+                    'MMM': '3M Company'
+                },
+                timezone: 'America/New_York',
+                openHour: 9,
+                openMinute: 30,
+                closeHour: 16,
+                closeMinute: 0
+            },
+            INDIA_NIFTY50: {
+                name: 'NIFTY 50',
+                stocks: {
+                    'RELIANCE': 'Reliance Industries',
+                    'TCS': 'Tata Consultancy',
+                    'HDFCBANK': 'HDFC Bank',
+                    'INFY': 'Infosys',
+                    'ICICIBANK': 'ICICI Bank',
+                    'HINDUNILVR': 'Hindustan Unilever',
+                    'ITC': 'ITC Limited',
+                    'SBIN': 'State Bank of India',
+                    'BHARTIARTL': 'Bharti Airtel',
+                    'KOTAKBANK': 'Kotak Mahindra Bank',
+                    'LT': 'Larsen & Toubro',
+                    'BAJFINANCE': 'Bajaj Finance',
+                    'HCLTECH': 'HCL Technologies',
+                    'ASIANPAINT': 'Asian Paints',
+                    'MARUTI': 'Maruti Suzuki',
+                    'AXISBANK': 'Axis Bank',
+                    'WIPRO': 'Wipro',
+                    'SUNPHARMA': 'Sun Pharma',
+                    'TITAN': 'Titan Company',
+                    'ULTRACEMCO': 'UltraTech Cement'
+                },
+                timezone: 'Asia/Kolkata',
+                openHour: 9,
+                openMinute: 15,
+                closeHour: 15,
+                closeMinute: 30
+            },
+            INDIA_SENSEX: {
+                name: 'BSE SENSEX',
+                stocks: {
+                    'RELIANCE': 'Reliance Industries',
+                    'TCS': 'Tata Consultancy',
+                    'HDFCBANK': 'HDFC Bank',
+                    'INFY': 'Infosys',
+                    'ICICIBANK': 'ICICI Bank',
+                    'HINDUNILVR': 'Hindustan Unilever',
+                    'ITC': 'ITC Limited',
+                    'SBIN': 'State Bank of India',
+                    'BHARTIARTL': 'Bharti Airtel',
+                    'KOTAKBANK': 'Kotak Mahindra',
+                    'BAJFINANCE': 'Bajaj Finance',
+                    'LT': 'Larsen & Toubro',
+                    'HCLTECH': 'HCL Tech',
+                    'ASIANPAINT': 'Asian Paints',
+                    'MARUTI': 'Maruti Suzuki',
+                    'AXISBANK': 'Axis Bank',
+                    'SUNPHARMA': 'Sun Pharma',
+                    'TITAN': 'Titan Company',
+                    'NTPC': 'NTPC Limited',
+                    'POWERGRID': 'Power Grid'
+                },
+                timezone: 'Asia/Kolkata',
+                openHour: 9,
+                openMinute: 15,
+                closeHour: 15,
+                closeMinute: 30
+            },
+            INDIA_BANKNIFTY: {
+                name: 'Bank NIFTY',
+                stocks: {
+                    'HDFCBANK': 'HDFC Bank',
+                    'ICICIBANK': 'ICICI Bank',
+                    'SBIN': 'State Bank of India',
+                    'KOTAKBANK': 'Kotak Mahindra Bank',
+                    'AXISBANK': 'Axis Bank',
+                    'INDUSINDBK': 'IndusInd Bank',
+                    'BANDHANBNK': 'Bandhan Bank',
+                    'FEDERALBNK': 'Federal Bank',
+                    'IDFCFIRSTB': 'IDFC First Bank',
+                    'PNB': 'Punjab National Bank',
+                    'BANKBARODA': 'Bank of Baroda',
+                    'AUBANK': 'AU Small Finance'
+                },
+                timezone: 'Asia/Kolkata',
+                openHour: 9,
+                openMinute: 15,
+                closeHour: 15,
+                closeMinute: 30
+            }
+        };
+
+        let currentMarket = 'US_MAJOR';
+        let stockData = {};
+        let currentBgAnimation = 'particles';
+        let lastUpdateTime = null;
+        let isUpdating = false;
+        let dataFetchError = false;
+
+        // Yahoo Finance API integration via backend proxy
+        async function fetchYahooFinanceData(symbol) {
+            try {
+                // For Indian stocks, add .NS (NSE) or .BO (BSE) suffix
+                let yahooSymbol = symbol;
+                if (currentMarket.startsWith('INDIA_')) {
+                    if (!symbol.includes('.NS') && !symbol.includes('.BO')) {
+                        yahooSymbol = symbol + '.NS'; // Default to NSE
+                    }
+                }
+                
+                // 🔥 REPLACE THIS WITH YOUR DEPLOYED API URL
+                // Example: 'https://stock-ticker-xxxxx.vercel.app/api/stocks'
+                // or: 'https://your-site.netlify.app/.netlify/functions/stocks'
+                const API_URL = '/api/stocks'; // Change this to your deployed URL
+                
+                const response = await fetch(`${API_URL}?symbol=${yahooSymbol}`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`API returned ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                return {
+                    symbol: symbol,
+                    name: MARKETS[currentMarket].stocks[symbol] || symbol,
+                    price: data.price,
+                    change: data.change,
+                    changePercent: data.changePercent,
+                    high: data.high,
+                    low: data.low,
+                    volume: data.volume,
+                    marketCap: data.marketCap.toString(),
+                    history: data.history,
+                    timestamp: data.timestamp
+                };
+            } catch (error) {
+                console.error(`❌ Error fetching ${symbol}:`, error.message);
+                return null;
+            }
+        }
+
+        // Fetch data for all stocks in current market
+        async function fetchAllStockData() {
+            if (isUpdating) return;
+            isUpdating = true;
+            dataFetchError = false;
+            
+            const market = MARKETS[currentMarket];
+            const symbols = Object.keys(market.stocks);
+            
+            console.log(`📊 Fetching real-time data for ${symbols.length} stocks from Yahoo Finance...`);
+            
+            // Show loading indicator
+            const statusDot = document.getElementById('status-dot');
+            const statusText = document.getElementById('market-status-text');
+            statusDot.style.background = '#ffaa00';
+            statusDot.style.boxShadow = '0 0 10px #ffaa00';
+            statusText.textContent = 'Fetching data...';
+            
+            // Fetch in batches to avoid rate limiting (3 at a time for CORS proxy)
+            const batchSize = 3;
+            const results = {};
+            let successCount = 0;
+            let failCount = 0;
+            
+            for (let i = 0; i < symbols.length; i += batchSize) {
+                const batch = symbols.slice(i, i + batchSize);
+                const batchPromises = batch.map(symbol => fetchYahooFinanceData(symbol));
+                const batchResults = await Promise.all(batchPromises);
+                
+                batchResults.forEach((data, index) => {
+                    if (data) {
+                        results[batch[index]] = data;
+                        successCount++;
+                    } else {
+                        failCount++;
+                    }
+                });
+                
+                // Delay between batches
+                if (i + batchSize < symbols.length) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
+            
+            console.log(`✅ Successfully fetched ${successCount} stocks`);
+            console.log(`❌ Failed to fetch ${failCount} stocks`);
+            
+            // Update last update time
+            lastUpdateTime = new Date();
+            updateTimestamp();
+            
+            // Only use data if we got at least 50% success rate
+            if (successCount > 0 && successCount >= symbols.length * 0.5) {
+                stockData = results;
+                dataFetchError = false;
+                console.log(`✅ Using real Yahoo Finance data`);
+            } else {
+                // Show error - NO MOCK DATA
+                dataFetchError = true;
+                stockData = {};
+                console.error(`❌ Failed to fetch sufficient data (${successCount}/${symbols.length})`);
+            }
+            
+            isUpdating = false;
+            return stockData;
+        }
+
+        // Update timestamp display
+        function updateTimestamp() {
+            if (lastUpdateTime) {
+                const timeStr = lastUpdateTime.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit',
+                    hour12: true 
+                });
+                document.getElementById('update-time').textContent = timeStr;
+            }
+        }
+        const canvas = document.getElementById('canvas-bg');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Particle animation
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 2 + 0.5;
+                this.speedX = Math.random() * 0.5 - 0.25;
+                this.speedY = Math.random() * 0.5 - 0.25;
+                this.opacity = Math.random() * 0.5 + 0.1;
+            }
+
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+
+                if (this.x > canvas.width) this.x = 0;
+                if (this.x < 0) this.x = canvas.width;
+                if (this.y > canvas.height) this.y = 0;
+                if (this.y < 0) this.y = canvas.height;
+            }
+
+            draw() {
+                const isLight = document.body.classList.contains('light-mode');
+                ctx.fillStyle = isLight 
+                    ? `rgba(50, 100, 200, ${this.opacity * 0.3})`
+                    : `rgba(100, 150, 255, ${this.opacity})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Matrix rain animation
+        class MatrixRain {
+            constructor() {
+                this.drops = [];
+                this.columns = Math.floor(canvas.width / 20);
+                for (let i = 0; i < this.columns; i++) {
+                    this.drops[i] = Math.random() * canvas.height;
+                }
+                this.frameCount = 0;
+            }
+
+            draw() {
+                this.frameCount++;
+                // Only update every 4 frames to slow it down more
+                if (this.frameCount % 4 !== 0) return;
+
+                const isLight = document.body.classList.contains('light-mode');
+                ctx.fillStyle = isLight 
+                    ? 'rgba(255, 255, 255, 0.08)'
+                    : 'rgba(0, 0, 0, 0.08)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = isLight ? 'rgba(0, 150, 0, 0.5)' : '#0F0';
+                ctx.font = '15px monospace';
+
+                for (let i = 0; i < this.drops.length; i++) {
+                    // Using numbers and symbols instead of Japanese characters
+                    const chars = '01$₹€¥£@#%&*+=<>?';
+                    const text = chars.charAt(Math.floor(Math.random() * chars.length));
+                    ctx.fillText(text, i * 20, this.drops[i]);
+
+                    if (this.drops[i] > canvas.height && Math.random() > 0.98) {
+                        this.drops[i] = 0;
+                    }
+                    this.drops[i] += 12;
+                }
+            }
+        }
+
+        // Grid animation
+        class Grid {
+            constructor() {
+                this.offset = 0;
+            }
+
+            draw() {
+                const isLight = document.body.classList.contains('light-mode');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.strokeStyle = isLight 
+                    ? 'rgba(0, 100, 200, 0.15)'
+                    : 'rgba(100, 200, 255, 0.25)';
+                ctx.lineWidth = 1;
+
+                const spacing = 50;
+                this.offset = (this.offset + 0.5) % spacing;
+
+                // Vertical lines
+                for (let x = -spacing + this.offset; x < canvas.width; x += spacing) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, canvas.height);
+                    ctx.stroke();
+                }
+
+                // Horizontal lines
+                for (let y = -spacing + this.offset; y < canvas.height; y += spacing) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(canvas.width, y);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // Waves animation
+        class Waves {
+            constructor() {
+                this.time = 0;
+            }
+
+            draw() {
+                const isLight = document.body.classList.contains('light-mode');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                this.time += 0.01;
+
+                for (let i = 0; i < 5; i++) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = isLight 
+                        ? `rgba(0, 100, 200, ${0.4 - i * 0.06})`
+                        : `rgba(100, 200, 255, ${0.6 - i * 0.08})`;
+                    ctx.lineWidth = 3;
+
+                    for (let x = 0; x < canvas.width; x++) {
+                        const y = canvas.height / 2 + 
+                            Math.sin(x * 0.01 + this.time + i * 0.5) * 50 +
+                            Math.sin(x * 0.02 + this.time * 0.5) * 30;
+                        if (x === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                    ctx.stroke();
+                }
+            }
+        }
+
+        let particles = Array.from({ length: 100 }, () => new Particle());
+        let matrixRain = new MatrixRain();
+        let grid = new Grid();
+        let waves = new Waves();
+
+        function animateBackground() {
+            switch (currentBgAnimation) {
+                case 'particles':
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    particles.forEach(p => {
+                        p.update();
+                        p.draw();
+                    });
+                    break;
+                case 'matrix':
+                    matrixRain.draw();
+                    break;
+                case 'grid':
+                    grid.draw();
+                    break;
+                case 'waves':
+                    waves.draw();
+                    break;
+            }
+            requestAnimationFrame(animateBackground);
+        }
+
+        animateBackground();
+
+        // Clock updates
+        function updateClocks() {
+            const now = new Date();
+            
+            const estTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+            const istTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+            const utcTime = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }));
+
+            // AM/PM format for EST and IST, 24-hour for UTC
+            document.getElementById('clock-est').textContent = estTime.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            document.getElementById('clock-ist').textContent = istTime.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            document.getElementById('clock-utc').textContent = utcTime.toLocaleTimeString('en-US', { hour12: false });
+
+            updateMarketStatus(now);
+        }
+
+        function updateMarketStatus(now) {
+            const market = MARKETS[currentMarket];
+            const marketTime = new Date(now.toLocaleString('en-US', { timeZone: market.timezone }));
+            const day = marketTime.getDay();
+            const hours = marketTime.getHours();
+            const minutes = marketTime.getMinutes();
+
+            const currentMinutes = hours * 60 + minutes;
+            const openMinutes = market.openHour * 60 + market.openMinute;
+            const closeMinutes = market.closeHour * 60 + market.closeMinute;
+
+            const isWeekday = day >= 1 && day <= 5;
+            const isOpen = isWeekday && currentMinutes >= openMinutes && currentMinutes < closeMinutes;
+
+            const statusDot = document.getElementById('status-dot');
+            const statusText = document.getElementById('market-status-text');
+
+            if (isOpen) {
+                statusDot.className = 'status-dot open';
+                statusText.textContent = `${market.name} - Market Open`;
+            } else {
+                statusDot.className = 'status-dot closed';
+                statusText.textContent = `${market.name} - Market Closed`;
+            }
+        }
+
+        setInterval(updateClocks, 1000);
+        updateClocks();
+
+        // Generate mock stock data
+        function generateMockStockData() {
+            const market = MARKETS[currentMarket];
+            const data = {};
+            
+            Object.entries(market.stocks).forEach(([symbol, name]) => {
+                const basePrice = Math.random() * 500 + 50;
+                const change = (Math.random() - 0.5) * 20;
+                const changePercent = (change / basePrice) * 100;
+                
+                data[symbol] = {
+                    symbol: symbol,
+                    name: name,
+                    price: basePrice.toFixed(2),
+                    change: change.toFixed(2),
+                    changePercent: changePercent.toFixed(2),
+                    high: (basePrice + Math.random() * 10).toFixed(2),
+                    low: (basePrice - Math.random() * 10).toFixed(2),
+                    volume: Math.floor(Math.random() * 100000000),
+                    marketCap: (basePrice * Math.random() * 10000000000).toFixed(0),
+                    history: Array.from({ length: 20 }, (_, i) => 
+                        basePrice + Math.sin(i / 3) * 10 + (Math.random() - 0.5) * 5
+                    )
+                };
+            });
+            
+            console.log(`Generated ${Object.keys(data).length} stocks for ${market.name}`);
+            return data;
+        }
+
+        // Create mini chart SVG - shows recent price history (simulated intraday performance)
+        function createMiniChart(history, isPositive) {
+            const width = 240;
+            const height = 80;
+            const max = Math.max(...history);
+            const min = Math.min(...history);
+            const range = max - min || 1;
+            
+            const points = history.map((value, index) => {
+                const x = (index / (history.length - 1)) * width;
+                const y = height - ((value - min) / range) * height;
+                return `${x},${y}`;
+            }).join(' ');
+
+            const color = isPositive ? '#00ff88' : '#ff4444';
+            
+            return `
+                <svg class="chart-line" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
+                    <defs>
+                        <linearGradient id="grad-${isPositive ? 'pos' : 'neg'}" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" style="stop-color:${color};stop-opacity:0.3" />
+                            <stop offset="100%" style="stop-color:${color};stop-opacity:0" />
+                        </linearGradient>
+                    </defs>
+                    <polyline
+                        points="${points}"
+                        fill="none"
+                        stroke="${color}"
+                        stroke-width="3"
+                        opacity="0.9"
+                    />
+                    <polyline
+                        points="${points} ${width},${height} 0,${height}"
+                        fill="url(#grad-${isPositive ? 'pos' : 'neg'})"
+                    />
+                </svg>
+            `;
+        }
+
+        // Create stock item HTML
+        function createStockItem(stock) {
+            const isPositive = parseFloat(stock.change) >= 0;
+            const className = isPositive ? 'positive' : 'negative';
+            const arrow = isPositive ? '▲' : '▼';
+            const isIndianMarket = currentMarket.startsWith('INDIA_');
+            const currencySymbol = isIndianMarket ? '₹' : '$';
+            
+            return `
+                <div class="stock-item ${className}" data-symbol="${stock.symbol}">
+                    <div class="stock-header">
+                        <div>
+                            <div class="stock-name">${stock.name}</div>
+                            <div class="stock-symbol">${stock.symbol}</div>
+                        </div>
+                    </div>
+                    <div class="stock-price">${currencySymbol}${stock.price}</div>
+                    <div class="stock-change">
+                        <span class="arrow">${arrow}</span>
+                        <span>${isPositive ? '+' : ''}${stock.change} (${isPositive ? '+' : ''}${stock.changePercent}%)</span>
+                    </div>
+                    <div class="mini-chart">
+                        ${createMiniChart(stock.history, isPositive)}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Initialize ticker
+        async function initTicker() {
+            // Fetch real data from Yahoo Finance
+            await fetchAllStockData();
+            
+            const ribbon = document.getElementById('tickerRibbon');
+            const loading = document.getElementById('loading');
+            const container = document.getElementById('tickerContainer');
+            
+            // Check if we have data
+            if (Object.keys(stockData).length === 0 || dataFetchError) {
+                // Show error message
+                loading.innerHTML = `
+                    <div style="text-align: center;">
+                        <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
+                        <div style="font-size: 24px; margin-bottom: 10px;">Unable to fetch stock data</div>
+                        <div style="font-size: 14px; color: rgba(255, 255, 255, 0.6); margin-bottom: 20px;">
+                            Please check your internet connection<br>
+                            Yahoo Finance may be temporarily unavailable
+                        </div>
+                        <button onclick="location.reload()" style="
+                            background: rgba(255, 255, 255, 0.1);
+                            border: 1px solid rgba(255, 255, 255, 0.3);
+                            color: white;
+                            padding: 12px 24px;
+                            border-radius: 8px;
+                            font-size: 14px;
+                            cursor: pointer;
+                            font-family: inherit;
+                        ">🔄 Retry</button>
+                    </div>
+                `;
+                loading.style.display = 'block';
+                container.style.display = 'none';
+                return;
+            }
+            
+            console.log('Stock symbols:', Object.keys(stockData));
+            const stockHTML = Object.values(stockData).map(createStockItem).join('');
+            console.log('Number of stock items created:', Object.values(stockData).length);
+            
+            ribbon.innerHTML = stockHTML + stockHTML;
+            
+            // ✅ CRITICAL FIX: Force correct width for seamless scroll
+            // Wait for DOM to render, then calculate actual width
+            setTimeout(() => {
+                const items = ribbon.querySelectorAll('.stock-item');
+                let totalWidth = 0;
+                
+                // Calculate total width of all items (duplicated set)
+                items.forEach(el => {
+                    const style = window.getComputedStyle(el);
+                    const marginLeft = parseFloat(style.marginLeft);
+                    const marginRight = parseFloat(style.marginRight);
+                    totalWidth += el.offsetWidth + marginLeft + marginRight;
+                });
+                
+                // Set width to exactly match the duplicated content
+                ribbon.style.width = totalWidth + 'px';
+                console.log('Ribbon total width:', totalWidth, 'px for', items.length, 'items');
+                console.log('Average per stock:', totalWidth / items.length, 'px');
+            }, 100);
+            
+            loading.style.display = 'none';
+            container.style.display = 'block';
+            
+            document.querySelectorAll('.stock-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    const symbol = e.currentTarget.dataset.symbol;
+                    showDetailModal(stockData[symbol]);
+                });
+            });
+            
+            console.log('Total stock-item elements in DOM:', document.querySelectorAll('.stock-item').length);
+        }
+
+        // Show detail modal
+        function showDetailModal(stock) {
+            const isPositive = parseFloat(stock.change) >= 0;
+            const className = isPositive ? 'positive' : 'negative';
+            const bgClassName = isPositive ? 'positive-bg' : 'negative-bg';
+            const arrow = isPositive ? '▲' : '▼';
+            const isIndianMarket = currentMarket.startsWith('INDIA_');
+            const currencySymbol = isIndianMarket ? '₹' : '$';
+            
+            const content = `
+                <button class="close-btn" onclick="closeDetailModal()">×</button>
+                <div class="detail-header ${className}">
+                    <div class="stock-name">${stock.name}</div>
+                    <div class="detail-symbol">${stock.symbol}</div>
+                    <div class="detail-price">${currencySymbol}${stock.price}</div>
+                    <div class="detail-change">
+                        ${arrow} ${isPositive ? '+' : ''}${stock.change} (${isPositive ? '+' : ''}${stock.changePercent}%)
+                    </div>
+                </div>
+                <div class="detail-stats">
+                    <div class="stat-item">
+                        <div class="stat-label">Day High</div>
+                        <div class="stat-value">${currencySymbol}${stock.high}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Day Low</div>
+                        <div class="stat-value">${currencySymbol}${stock.low}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Volume</div>
+                        <div class="stat-value">${(stock.volume / 1000000).toFixed(1)}M</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Market Cap</div>
+                        <div class="stat-value">${currencySymbol}${(stock.marketCap / 1000000000).toFixed(1)}B</div>
+                    </div>
+                </div>
+            `;
+            
+            const detailContent = document.getElementById('detailContent');
+            detailContent.innerHTML = content;
+            detailContent.className = `detail-content ${bgClassName}`;
+            document.getElementById('detailModal').classList.add('active');
+        }
+
+        function closeDetailModal() {
+            document.getElementById('detailModal').classList.remove('active');
+        }
+
+        document.getElementById('detailModal').addEventListener('click', (e) => {
+            if (e.target.id === 'detailModal') {
+                closeDetailModal();
+            }
+        });
+
+        // Control handlers
+        document.getElementById('market-select').addEventListener('change', async (e) => {
+            currentMarket = e.target.value;
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('tickerContainer').style.display = 'none';
+            await initTicker();
+            updateMarketStatus(new Date());
+        });
+
+        document.getElementById('speed-slider').addEventListener('input', (e) => {
+            const ribbon = document.getElementById('tickerRibbon');
+            const duration = e.target.value;
+            ribbon.style.animationDuration = `${duration}s`;
+            document.getElementById('speed-display').textContent = `${duration}s`;
+        });
+
+        document.getElementById('font-select').addEventListener('change', (e) => {
+            // Remove all font classes
+            document.body.className = document.body.className
+                .split(' ')
+                .filter(c => !c.startsWith('font-'))
+                .join(' ');
+            // Add new font class
+            document.body.classList.add(`font-${e.target.value}`);
+            // Preserve light-mode class if it exists
+            if (e.target.value !== 'mono') {
+                const isLight = document.body.className.includes('light-mode');
+                document.body.className = `font-${e.target.value}${isLight ? ' light-mode' : ''}`;
+            }
+        });
+
+        document.getElementById('bg-select').addEventListener('change', (e) => {
+            currentBgAnimation = e.target.value;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        });
+
+        document.getElementById('theme-toggle').addEventListener('click', (e) => {
+            document.body.classList.toggle('light-mode');
+            const isLight = document.body.classList.contains('light-mode');
+            e.target.textContent = isLight ? '☀️ Light' : '🌙 Dark';
+        });
+
+        document.getElementById('refresh-btn').addEventListener('click', async () => {
+            const btn = document.getElementById('refresh-btn');
+            btn.textContent = '⏳ Updating...';
+            btn.disabled = true;
+            
+            await updateStockData();
+            
+            btn.textContent = '✅ Updated!';
+            setTimeout(() => {
+                btn.textContent = '🔄 Update';
+                btn.disabled = false;
+            }, 2000);
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            matrixRain = new MatrixRain();
+        });
+
+        // Update stock data periodically
+        // Update stock data periodically (every 5 minutes)
+        async function updateStockData() {
+            console.log('🔄 Refreshing stock data...');
+            await fetchAllStockData();
+            await initTicker();
+        }
+
+        // Initialize
+        initTicker();
+        
+        // Update every 5 minutes (300000ms) - Yahoo Finance data updates every ~15 minutes anyway
+        setInterval(updateStockData, 300000);
+        
+        // Also update timestamp display every second
+        setInterval(updateTimestamp, 1000);
+
+        // Music player controls - Initialize after DOM is loaded
+        window.addEventListener('DOMContentLoaded', function() {
+            const bgAudio = document.getElementById('bg-audio');
+            const musicToggle = document.getElementById('music-toggle');
+            const volumeSlider = document.getElementById('volume-slider');
+            const volumeLabel = document.getElementById('volume-label');
+
+            console.log('🎵 Initializing music player...');
+            console.log('Audio element:', bgAudio);
+            console.log('Toggle button:', musicToggle);
+
+            // Safety check - only initialize if all elements exist
+            if (!bgAudio || !musicToggle || !volumeSlider || !volumeLabel) {
+                console.warn('⚠️ Music player elements not found:', {
+                    audio: !!bgAudio,
+                    toggle: !!musicToggle,
+                    slider: !!volumeSlider,
+                    label: !!volumeLabel
+                });
+                if (musicToggle) {
+                    musicToggle.textContent = '⚠️';
+                    musicToggle.disabled = true;
+                    musicToggle.title = 'Audio not available';
+                }
+                return;
+            }
+
+            // All elements exist, initialize music player
+            let isPlaying = false;
+            let audioUnlocked = false;
+
+            console.log('✅ All music player elements found');
+
+            // Load audio on page load
+            try {
+                bgAudio.load();
+                console.log('✅ Audio element loaded');
+            } catch (err) {
+                console.error('❌ Failed to load audio:', err);
+            }
+
+            // Set initial volume to 30%
+            bgAudio.volume = 0.3;
+            volumeSlider.value = 30;
+            volumeLabel.textContent = '30%';
+
+            musicToggle.addEventListener('click', async () => {
+                console.log('🎵 Music button clicked, isPlaying:', isPlaying);
+                
+                if (isPlaying) {
+                    // Pause audio
+                    bgAudio.pause();
+                    musicToggle.textContent = '🔇';
+                    isPlaying = false;
+                    console.log('🔇 Music paused');
+                } else {
+                    // Play audio with promise handling
+                    try {
+                        console.log('▶️ Attempting to play audio...');
+                        await bgAudio.play();
+                        musicToggle.textContent = '🎵';
+                        isPlaying = true;
+                        audioUnlocked = true; // Mark as unlocked on successful play
+                        console.log('✅ Music playing successfully');
+                    } catch (error) {
+                        console.error('❌ Failed to play audio:', error);
+                        alert('Failed to play audio: ' + error.message + '\n\nMake sure music.mp3 is uploaded to your server.');
+                        // Show error to user
+                        musicToggle.textContent = '⚠️';
+                        setTimeout(() => {
+                            musicToggle.textContent = '🔇';
+                        }, 2000);
+                    }
+                }
+            });
+
+            volumeSlider.addEventListener('input', (e) => {
+                const volume = e.target.value / 100;
+                bgAudio.volume = volume;
+                volumeLabel.textContent = e.target.value + '%';
+                console.log('🔊 Volume changed to:', e.target.value + '%');
+            });
+
+            // Handle audio errors
+            bgAudio.addEventListener('error', (e) => {
+                console.error('❌ Audio loading error:', e);
+                console.error('❌ Error target:', e.target);
+                console.error('❌ Error code:', e.target.error?.code);
+                console.error('❌ Error message:', e.target.error?.message);
+                musicToggle.textContent = '⚠️';
+                musicToggle.disabled = true;
+                musicToggle.title = 'Audio file not found (check if music.mp3 exists)';
+            });
+
+            // Handle successful audio load
+            bgAudio.addEventListener('loadeddata', () => {
+                console.log('✅ Audio file loaded successfully - ready to play');
+            });
+
+            // Check if audio can play
+            bgAudio.addEventListener('canplay', () => {
+                console.log('✅ Audio can play');
+            });
+
+            console.log('✅ Music player fully initialized');
+        });
+    </script>
+
+    <!-- Background Music -->
+    <audio id="bg-audio" loop preload="auto">
+        <source src="music.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- Music Player Controls -->
+    <div class="music-controls">
+        <div class="music-player">
+            <button id="music-toggle" class="music-toggle">🔇</button>
+            <div class="volume-control">
+                <input type="range" id="volume-slider" class="volume-slider" min="0" max="100" value="30">
+                <span id="volume-label" class="volume-label">30%</span>
+            </div>
+        </div>
+        <div class="music-credit">
+            Rain, Book And Cup Of Tea by <a href="https://escp.space" target="_blank">| e s c p |</a>
+        </div>
+    </div>
+
+    <!-- Footer Credit -->
+    <div class="footer-credit">
+        <div>
+            <a href="https://github.com/anirudhvemula" target="_blank">
+                Github.com/anirudhvemula
+            </a>
+        </div>
+        <div>
+            Vibecoded by Anirudh Vemula, PE<br>
+            using Claude Sonnet 4.5 & ChatGPT 5.2
+        </div>
+    </div>
+</body>
+</html>
