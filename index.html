@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Stock Market Ticker Wallpaper</title>
     
     <!--
@@ -221,7 +224,7 @@
             will-change: transform;
             padding: 20px 0;
             transform-style: preserve-3d;
-            animation: scroll 15s linear infinite;
+            animation: scroll 25s linear infinite;
         }
 
         .ticker-ribbon:hover {
@@ -401,6 +404,15 @@
             flex-direction: column;
             gap: 8px;
             min-height: 60px;
+        }
+
+        /* Desktop/Mobile visibility classes */
+        .mobile-only {
+            display: none !important;
+        }
+
+        .desktop-only {
+            display: inherit !important; /* Inherit from parent control-group */
         }
 
         .control-group .btn {
@@ -888,6 +900,64 @@
             text-decoration: underline;
         }
 
+        /* Portrait orientation warning - rotated 90deg for better visibility */
+        .rotate-message {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .rotate-message-content {
+            transform: rotate(90deg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .rotate-message-icon {
+            font-size: 60px;
+            margin-bottom: 15px;
+            /* No animation - just static rotated icons */
+        }
+
+        .rotate-message-text {
+            font-size: 18px;
+            margin-bottom: 8px;
+            white-space: nowrap;
+        }
+
+        .rotate-message-subtext {
+            font-size: 12px;
+            opacity: 0.7;
+            white-space: nowrap;
+        }
+
+        /* Show rotate message on portrait mobile - Updated to 900px to catch landscape phones */
+        @media (max-width: 900px) and (orientation: portrait), (pointer: coarse) and (orientation: portrait) {
+            .rotate-message {
+                display: flex;
+            }
+            
+            /* Hide everything else in portrait */
+            .header,
+            .ticker-container,
+            .controls,
+            .music-controls,
+            .footer-credit {
+                display: none !important;
+            }
+        }
+
         /* Responsive Design - Handle Narrow Windows */
         @media (max-width: 1200px) {
             .header {
@@ -996,18 +1066,18 @@
             }
         }
 
-        @media (max-width: 600px) {
+        /* Very narrow landscape screens (e.g., phones in landscape with small height) */
+        @media (max-width: 900px) and (max-height: 400px) and (orientation: landscape) {
             .header {
-                padding: 10px;
+                padding: 5px 15px;
             }
 
             .clocks {
-                flex-direction: column;
-                gap: 5px;
+                gap: 10px;
             }
 
-            .clock-item {
-                text-align: left;
+            .clock-label {
+                font-size: 7px;
             }
 
             .clock-time {
@@ -1015,7 +1085,118 @@
             }
 
             .market-status {
-                font-size: 11px;
+                font-size: 9px;
+                padding: 4px 8px;
+            }
+
+            .last-updated {
+                font-size: 9px;
+            }
+
+            .ticker-container {
+                padding: 80px 0;
+            }
+
+            .stock-item {
+                min-width: 180px;
+                padding: 15px 20px;
+                margin: 0 20px;
+            }
+
+            .stock-symbol {
+                font-size: 18px;
+            }
+
+            .stock-price {
+                font-size: 22px;
+            }
+
+            .controls {
+                bottom: 5px;
+                padding: 4px 6px;
+                gap: 4px;
+            }
+
+            select, .btn {
+                font-size: 8px;
+                padding: 3px 6px;
+            }
+
+            #refresh-btn {
+                min-width: 32px;
+                width: 32px;
+                padding: 3px;
+                font-size: 14px;
+            }
+
+            .music-controls {
+                padding: 5px 8px;
+                bottom: 5px;
+            }
+
+            .music-toggle {
+                width: 32px;
+                height: 32px;
+                font-size: 16px;
+            }
+
+            .volume-slider {
+                width: 40px;
+                height: 3px;
+            }
+
+            .volume-label {
+                font-size: 8px;
+            }
+
+            .footer-credit {
+                padding: 5px 8px;
+                font-size: 7px;
+            }
+        }
+
+        /* Mobile Responsive - Updated to 900px to catch landscape phones + touch detection */
+        @media (max-width: 900px), (pointer: coarse) {
+            /* Toggle desktop/mobile controls - FORCE HIDE desktop controls */
+            .control-group.desktop-only,
+            .desktop-only {
+                display: none !important;
+                visibility: hidden !important;
+                opacity: 0 !important;
+                height: 0 !important;
+                overflow: hidden !important;
+            }
+
+            .control-group.mobile-only,
+            .mobile-only {
+                display: flex !important;
+                visibility: visible !important;
+            }
+
+            /* Force landscape orientation hint */
+            body {
+                min-height: 100vh;
+            }
+
+            .header {
+                padding: 10px 20px;
+            }
+
+            .clocks {
+                gap: 15px;
+            }
+
+            .clock-label {
+                font-size: 8px;
+            }
+
+            .clock-time {
+                font-size: 14px;
+            }
+
+            .market-status {
+                font-size: 10px;
+                padding: 6px 12px;
             }
 
             .ticker-container {
@@ -1023,7 +1204,7 @@
             }
 
             .stock-item {
-                min-width: 250px;
+                min-width: 200px;
                 padding: 20px 25px;
             }
 
@@ -1035,41 +1216,102 @@
                 font-size: 28px;
             }
 
+            /* Compact app-style controls for mobile - SINGLE LINE */
             .controls {
-                bottom: 5px;
-                padding: 10px 15px;
+                bottom: 10px;
+                left: auto !important;        /* 🔥 Remove left positioning */
+                right: 10px;                  /* 🔥 Position from right side */
+                transform: none !important;   /* 🔥 Remove center transform */
+                padding: 4px 6px;
+                border-radius: 12px;
+                gap: 4px;
+                flex-direction: row !important;   /* 🔥 Override column from earlier */
+                flex-wrap: nowrap !important;     /* 🔥 Keep in single line */
+                align-items: center;
+                justify-content: flex-end;    /* 🔥 Align to right */
+                max-width: 70vw;              /* 🔥 Reduced to leave space for music controls */
+                overflow-x: auto; /* Scroll if needed instead of wrap */
             }
 
+            .control-group {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                gap: 2px;
+                min-height: auto;
+                flex: 0 0 auto;        /* 🔥 Prevent expansion */
+                width: auto !important; /* 🔥 Override width: 100% from earlier */
+            }
+
+            /* Hide all labels on mobile for compact look */
             .control-label {
-                font-size: 9px;
+                display: none !important;
             }
 
             select, .btn {
-                font-size: 11px;
-                padding: 6px 12px;
+                font-size: 7px;
+                padding: 2px 4px;
+                white-space: nowrap;
+                min-width: auto;
+                height: 24px;
+                width: auto !important; /* 🔥 Override width: 100% from earlier */
             }
 
-            /* Move footer credit to top on very small screens */
+            /* Make dropdowns ultra-compact */
+            select {
+                max-width: 80px;
+                padding-right: 12px; /* Space for dropdown arrow */
+            }
+
+            #speed-slider {
+                width: 60px !important; /* 🔥 Override width: 100% */
+            }
+
+            #refresh-btn, #fullscreen-btn {
+                min-width: 28px;
+                width: 28px;
+                height: 28px;
+                padding: 3px;
+                font-size: 13px;
+                flex-shrink: 0;
+            }
+
+            /* Reduce music slider on mobile */
+            .music-controls {
+                left: 5px;
+                bottom: 5px;
+                padding: 8px 12px;
+            }
+
+            .volume-slider {
+                width: 50px;
+            }
+
+            .music-credit {
+                display: none; /* Hide music credit on mobile */
+            }
+
+            /* Move footer credit to top on mobile */
             .footer-credit {
                 top: 5px;
                 right: 5px;
                 font-size: 8px;
                 line-height: 1.3;
-            }
-
-            .music-controls {
-                left: 5px;
-                bottom: 5px;
-                padding: 8px 10px;
-            }
-
-            .volume-slider {
-                width: 60px;
+                padding: 8px 12px;
             }
         }
     </style>
 </head>
 <body>
+    <!-- Portrait orientation warning -->
+    <div class="rotate-message">
+        <div class="rotate-message-content">
+            <div class="rotate-message-icon">📱➡️🔄</div>
+            <div class="rotate-message-text">Please Rotate Your Device</div>
+            <div class="rotate-message-subtext">This website is best viewed in landscape mode</div>
+        </div>
+    </div>
+
     <canvas id="canvas-bg"></canvas>
     
     <div class="header">
@@ -1115,12 +1357,12 @@
                 <option value="INDIA_BANKNIFTY">Bank NIFTY</option>
             </select>
         </div>
-        <div class="control-group">
+        <div class="control-group desktop-only">
             <label class="control-label">Speed (sec)</label>
-            <input type="range" id="speed-slider" min="5" max="60" value="15" step="1" style="width: 150px;" dir="rtl">
-            <span id="speed-display" style="font-size: 10px; color: rgba(255, 255, 255, 0.6);">15s</span>
+            <input type="range" id="speed-slider" min="5" max="60" value="25" step="1" style="width: 150px;" dir="rtl">
+            <span id="speed-display" style="font-size: 10px; color: rgba(255, 255, 255, 0.6);">25s</span>
         </div>
-        <div class="control-group">
+        <div class="control-group desktop-only">
             <label class="control-label">Font</label>
             <select id="font-select">
                 <option value="mono" selected>Mono</option>
@@ -1143,13 +1385,19 @@
                 <option value="waves">Waves</option>
             </select>
         </div>
-        <div class="control-group">
+        <div class="control-group desktop-only">
             <label class="control-label">Theme</label>
             <button class="btn" id="theme-toggle">🌙 Dark</button>
         </div>
         <div class="control-group">
             <label class="control-label">Refresh Data</label>
-            <button class="btn" id="refresh-btn">🔄 Update</button>
+            <button class="btn" id="refresh-btn">🔄</button>
+        </div>
+        <div class="control-group mobile-only">
+            <button class="btn" id="fullscreen-btn">⛶</button>
+        </div>
+        <div class="control-group mobile-only">
+            <button class="btn" id="wallpaper-btn">Set Wallpaper</button>
         </div>
     </div>
 
@@ -2040,17 +2288,80 @@
 
         document.getElementById('refresh-btn').addEventListener('click', async () => {
             const btn = document.getElementById('refresh-btn');
-            btn.textContent = '⏳ Updating...';
+            btn.textContent = '⏳';
             btn.disabled = true;
             
             await updateStockData();
             
-            btn.textContent = '✅ Updated!';
+            btn.textContent = '✅';
             setTimeout(() => {
-                btn.textContent = '🔄 Update';
+                btn.textContent = '🔄';
                 btn.disabled = false;
             }, 2000);
         });
+
+        // Set Wallpaper button - only show in Android app
+        const wallpaperBtn = document.getElementById('wallpaper-btn');
+        if (wallpaperBtn) {
+            // Check if running in Android WebView
+            const isAndroidApp = typeof Android !== 'undefined' && Android.setAsWallpaper;
+            
+            if (isAndroidApp) {
+                // Running in Android app - set up the button
+                wallpaperBtn.addEventListener('click', () => {
+                    Android.setAsWallpaper();
+                });
+            } else {
+                // Running in mobile browser - hide the button
+                wallpaperBtn.style.display = 'none';
+                console.log('Set Wallpaper button hidden (not in Android app)');
+            }
+        }
+
+        // Fullscreen button (mobile browser only)
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        if (fullscreenBtn) {
+            let isFullscreen = false;
+
+            fullscreenBtn.addEventListener('click', () => {
+                if (!isFullscreen) {
+                    // Enter fullscreen
+                    const elem = document.documentElement;
+                    if (elem.requestFullscreen) {
+                        elem.requestFullscreen();
+                    } else if (elem.webkitRequestFullscreen) { // Safari
+                        elem.webkitRequestFullscreen();
+                    } else if (elem.mozRequestFullScreen) { // Firefox
+                        elem.mozRequestFullScreen();
+                    } else if (elem.msRequestFullscreen) { // IE/Edge
+                        elem.msRequestFullscreen();
+                    }
+                    fullscreenBtn.textContent = '🗗';
+                    isFullscreen = true;
+                } else {
+                    // Exit fullscreen
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    } else if (document.webkitExitFullscreen) {
+                        document.webkitExitFullscreen();
+                    } else if (document.mozCancelFullScreen) {
+                        document.mozCancelFullScreen();
+                    } else if (document.msExitFullscreen) {
+                        document.msExitFullscreen();
+                    }
+                    fullscreenBtn.textContent = '⛶';
+                    isFullscreen = false;
+                }
+            });
+
+            // Listen for fullscreen changes (user pressing ESC)
+            document.addEventListener('fullscreenchange', () => {
+                if (!document.fullscreenElement) {
+                    fullscreenBtn.textContent = '⛶';
+                    isFullscreen = false;
+                }
+            });
+        }
 
         // Handle window resize
         window.addEventListener('resize', () => {
